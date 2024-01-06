@@ -168,17 +168,15 @@ for carrier in new_charts.keys():
             char_df = pd.concat(list(chart.values()),ignore_index=True)
             df = pd.concat([df,char_df],ignore_index=True)
         df["state"].fillna('new', inplace=True)
-        # df.loc[len(df)] = ''
          
     else:
         charts  = set(new_charts[carrier].keys()) | set(old_charts[carrier].keys())
+        charts.discard('Carrier info')
         car_df = new_charts[carrier]['Carrier info']
         df = pd.concat([df,car_df])
         df["state"].fillna('old', inplace=True)
 
         for chart in charts:
-            if chart == 'Carrier info':
-                continue
             if chart not in old_charts[carrier].keys():
                 print(f'New {chart} for "{carrier}"')
                 chart_df = pd.concat(list(new_charts[carrier][chart].values()),ignore_index=True)
@@ -192,10 +190,21 @@ for carrier in new_charts.keys():
                 df["state"].fillna('removed', inplace=True)
 
             else:
-                print(f'{chart} for "{carrier}" was not changed')
-                chart_df = pd.concat(list(new_charts[carrier][chart].values()),ignore_index=True)
-                df = pd.concat([df,chart_df])
+                df = pd.concat([df,new_charts[carrier][chart]['Chart info']],ignore_index=True)
                 df["state"].fillna('old', inplace=True)
+                dates = set(new_charts[carrier][chart].keys()) | set(old_charts[carrier][chart].keys())
+                dates.discard('Chart info')
+                
+                for date in dates:
+                    if date not in old_charts[carrier][chart].keys():
+                        df = pd.concat([df,new_charts[carrier][chart][date]],ignore_index=True)
+                        df["state"].fillna('new', inplace=True)
+                    elif date not in new_charts[carrier][chart].keys():
+                        df = pd.concat([df,old_charts[carrier][chart][date]],ignore_index=True)
+                        df["state"].fillna('removed', inplace=True)
+                    else:
+                        df = pd.concat([df,new_charts[carrier][chart][date]],ignore_index=True)
+                        df["state"].fillna('old', inplace=True)
             df.loc[len(df)] = ''
                 
 
