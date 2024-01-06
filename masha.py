@@ -207,6 +207,13 @@ df.to_excel(new_filepath, sheet_name=sheet, startrow=0, header=False, index=Fals
 wb = xl.load_workbook(new_filepath)
 ws = wb[sheet]
 
+font_base = xl.styles.Font(name='Tahoma', size=7, bold=False)
+font_bold = xl.styles.Font(name='Tahoma', size=7, bold=True)
+font_car = xl.styles.Font(name='Tahoma', size=8, bold=True)
+bold_text = ["Chart #:", "Patient Name:","Date of birth:", "Aging Date:", "Provider", "CPT Code","Service Date", "Total"]
+money_fmt = '$#,##0.00'
+percent_fmt = '0.00%'
+car_row_prev = False
 
 for row in ws.iter_rows(min_row=1, max_row=df.shape[0]):
     if row[0].value == 'new':
@@ -218,8 +225,25 @@ for row in ws.iter_rows(min_row=1, max_row=df.shape[0]):
     else:
         col = None
         typ = None
+    
     for cell in row:
+        # define the fill color
         fill_col = xl.styles.PatternFill(start_color=col, end_color=col, fill_type=typ)
         cell.fill = fill_col
+        # define the font
+        if type(cell.value) is str and ("Carrier: " in cell.value or "Phone:" in cell.value):
+            cell.font = font_car
+        elif type(cell.value) is str and any([val in cell.value for val in bold_text]):
+            cell.font = font_bold
+        elif cell.column in range(7,14):
+            cell.font = font_bold
+        else:
+            cell.font = font_base
+        # define the number format
+        if car_row_prev:
+            cell.number_format = percent_fmt
+        elif cell.column > 6:
+            cell.number_format = money_fmt
+    car_row_prev = True if type(row[1].value) is str and "Carrier: " in row[1].value else False
 
 wb.save(new_filepath)
