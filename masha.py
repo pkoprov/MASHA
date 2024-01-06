@@ -5,6 +5,12 @@ import tkinter as tk
 from tkinter import filedialog
 
 
+def select_file(init_dir=None, title=None):
+    root = tk.Tk()
+    root.withdraw()
+    filepath = filedialog.askopenfilename(initialdir=init_dir, title=title)
+    root.destroy()
+    return filepath
 def process_spreadsheet(filepath):
     df = pd.read_excel(filepath, header=None)
     
