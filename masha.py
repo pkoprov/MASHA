@@ -11,6 +11,13 @@ def select_file(init_dir=None, title=None):
     filepath = filedialog.askopenfilename(initialdir=init_dir, title=title)
     root.destroy()
     return filepath
+
+def key_plus_df(df, rows, iter, start, col=0):
+    end = rows[iter+1] if iter+1 < len(rows) else df.index[-1]
+    key = df.loc[start,col].strip()
+    df = df.loc[start:end-1]
+    return key, df
+
 def process_spreadsheet(filepath):
     df = pd.read_excel(filepath, header=None)
     
@@ -22,28 +29,28 @@ def process_spreadsheet(filepath):
     carrier_rows.pop(0) # remove the first element
     
     # create a dictionary of carriers
-    carriers = {}
-    
-    for i, start in enumerate(carrier_rows):
-        # get the chart row names for the current carrier
-        end = carrier_rows[i+1] if i+1 < len(carrier_rows) else len(df)
-        carriers[df.iloc[start,0].strip("Carrier:  ")] = df.iloc[start:end]
-    
-    # create a dictionary of charts per carrier from carriers
     charts = {}
-    for carrier in carriers.keys():
-        charts[carrier] = {}
-        df = carriers[carrier]
-        chart_rows = df[df.iloc[:,1].str.contains('Chart #')].index.to_list()
-        for i, start in enumerate(chart_rows):
-            end = chart_rows[i+1]-1 if i+1 < len(chart_rows) else df.index[-1]
-            charts[carrier][df.loc[start,1].strip()] = df.loc[start:end].reset_index(drop=True)
     
-    carriers_line = {}
-    for carrier in carriers.keys():
-        carriers_line[carrier] = carriers[carrier].iloc[:2]
+    for i, car_start in enumerate(carrier_rows):
+        # get the chart row names for the current carrier
+        carrier, car_df = key_plus_df(df, carrier_rows, i, car_start)
+        print("Working with", carrier, "...")
+
+        chart_rows = car_df[car_df.iloc[:,1].str.contains('Chart #')].index.to_list()
+        charts[carrier] = {"Carrier info": df.iloc[car_start:chart_rows[0]]}
+        for j, ch_start in enumerate(chart_rows):
+            chart, ch_df = key_plus_df(car_df, chart_rows, j, ch_start,1)
+            print(5*"\t", chart,"...")
+            
+            visit_rows = ch_df[ch_df.iloc[:,0].str.contains('Aging Date:')].index.to_list()
+            charts[carrier][chart] = {"Chart info": df.iloc[ch_start:visit_rows[0]]}
+            for k, v_start in enumerate(visit_rows):
+                date, v_df = key_plus_df(ch_df, visit_rows, k, v_start)
+                print(7*"\t", date)
+
+                charts[carrier][chart][date] = v_df.reset_index(drop=True)
         
-    return charts, carriers_line
+    return charts
 
 
 def write_carrier(carriers, new_filepath, sheet, carrier):
@@ -137,42 +144,53 @@ def write_charts(charts, new_filepath, sheet, carrier):
     wb.save(new_filepath)
 
 
-def select_file(init_dir=None, title=None):
-    root = tk.Tk()
-    root.withdraw()
-    filepath = filedialog.askopenfilename(initialdir=init_dir, title=title)
-    root.destroy()
-    return filepath
-
 
 print('Select the new spreadsheet')
 new = select_file(title = 'Select the new spreadsheet')
 print('Select the old spreadsheet')
 old = select_file(title='Select the old spreadsheet')
 
-new_charts, new_carriers = process_spreadsheet(new)
-old_charts, old_carriers = process_spreadsheet(old)
+new_charts = process_spreadsheet(new)
+old_charts = process_spreadsheet(old)
 
+df = pd.DataFrame(columns = ["state"])
 for carrier in new_charts.keys():
     if carrier not in old_charts.keys():
-        print(f'New carrier "{carrier}"')
-        old_carriers['new'] = [] if 'new' not in old_carriers.keys() else old_carriers['new']
-        old_carriers[carrier] = new_carriers[carrier]
-        old_carriers['new'].append(carrier)
-        old_charts[carrier] = new_charts[carrier]
+        df = pd.concat([df,new_charts[carrier]['Carrier info']], ignore_index=True)
+        car_dict = [chart for key,chart in new_charts[carrier].items() if 'Carrier info' not in key][0]
+        char_df = pd.concat(list(car_dict.values()),ignore_index=True)
+        df = pd.concat([df,char_df],ignore_index=True)
+        df["state"].fillna('new', inplace=True)
+        df.loc[len(df)] = ''
+ 
         
     else:
         charts  = set(new_charts[carrier].keys()) | set(old_charts[carrier].keys())
+        car_df = new_charts[carrier]['Carrier info']
+        df = pd.concat([df,car_df])
+        df["state"].fillna('old', inplace=True)
+
         for chart in charts:
+            if chart == 'Carrier info':
+                continue
             if chart not in old_charts[carrier].keys():
-                old_charts[carrier]["new"] = [] if "new" not in old_charts[carrier].keys() else old_charts[carrier]["new"]
-                print(f'New chart for carrier "{carrier}": {chart}')
-                old_charts[carrier][chart] = new_charts[carrier][chart]
-                old_charts[carrier]["new"].append(chart)
+                print(f'New {chart} for "{carrier}"')
+                chart_df = pd.concat(list(new_charts[carrier][chart].values()),ignore_index=True)
+                df = pd.concat([df,chart_df])
+                df["state"].fillna('new', inplace=True)
             elif chart not in new_charts[carrier].keys():
-                old_charts[carrier]["removed"] = [] if "removed" not in old_charts[carrier].keys() else old_charts[carrier]["removed"]
-                old_charts[carrier]["removed"].append(chart)
+                print(f'{chart} for "{carrier}" was removed')
+                chart_df = pd.concat(list(old_charts[carrier][chart].values()),ignore_index=True)
+                df = pd.concat([df,chart_df])
+                df["state"].fillna('removed', inplace=True)
+            else:
+                print(f'{chart} for "{carrier}" was not changed')
+                chart_df = pd.concat(list(new_charts[carrier][chart].values()),ignore_index=True)
+                df = pd.concat([df,chart_df])
+                df["state"].fillna('old', inplace=True)
+            df.loc[len(df)] = ''
                 
+
 
 new_filepath = 'Spreadsheet_Updated.xlsx'
 sheet = 'CarrierArDetail'
@@ -181,20 +199,24 @@ if not os.path.exists(new_filepath):
     # If the file doesn't exist, create an empty DataFrame and write it to the file
     pd.DataFrame().to_excel(new_filepath, sheet_name=sheet)
 
-for carrier in old_charts.keys():
-    if carrier == 'new':
-        continue
-    print(f'Writing "{carrier}"...')
-    write_carrier(old_carriers, new_filepath, sheet, carrier)
-    write_charts(old_charts, new_filepath, sheet, carrier)
+df.to_excel(new_filepath, sheet_name=sheet, startrow=0, header=False, index=False)
+
+wb = xl.load_workbook(new_filepath)
+ws = wb[sheet]
 
 
+for row in ws.iter_rows(min_row=1, max_row=df.shape[0]):
+    if row[0].value == 'new':
+        col = 'FFFF00'
+        typ = 'solid'
+    elif row[0].value == 'removed':
+        col = 'FF0000'
+        typ = 'solid'
+    else:
+        col = None
+        typ = None
+    for cell in row:
+        fill_col = xl.styles.PatternFill(start_color=col, end_color=col, fill_type=typ)
+        cell.fill = fill_col
 
-carrier = 'NOT BILLED YET - ()'#'AETNA - (AET07)'
-carriers = old_carriers
-charts = old_charts
-saved = old_charts[carrier].copy()
-saved.keys()
-
-charts[carrier] = saved.copy()
-charts[carrier].keys()
+wb.save(new_filepath)
