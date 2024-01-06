@@ -90,6 +90,7 @@ def write_charts(charts, new_filepath, sheet, carrier):
         except KeyError:
             startrow = 0
         new = charts[carrier].pop('new', [])
+        removed = charts[carrier].pop('removed', [])
         df = pd.concat(charts[carrier].values(), ignore_index=True)
         chart_rows = df[df.iloc[:,1].str.contains('Chart #')].index
 
@@ -111,6 +112,9 @@ def write_charts(charts, new_filepath, sheet, carrier):
         if "Chart #" in chart:
             if chart in new:
                 col = 'FFFF00'
+                typ = 'solid'
+            elif chart in removed:
+                col = 'FF0000'
                 typ = 'solid'
             else:
                 col = None
@@ -152,14 +156,17 @@ for carrier in new_charts.keys():
         old_charts[carrier] = new_charts[carrier]
         
     else:
-        for chart in new_charts[carrier].keys():
+        charts  = set(new_charts[carrier].keys()) | set(old_charts[carrier].keys())
+        for chart in charts:
             if chart not in old_charts[carrier].keys():
                 old_charts[carrier]["new"] = [] if "new" not in old_charts[carrier].keys() else old_charts[carrier]["new"]
                 print(f'New chart for carrier "{carrier}": {chart}')
                 old_charts[carrier][chart] = new_charts[carrier][chart]
                 old_charts[carrier]["new"].append(chart)
-
-
+            elif chart not in new_charts[carrier].keys():
+                old_charts[carrier]["removed"] = [] if "removed" not in old_charts[carrier].keys() else old_charts[carrier]["removed"]
+                old_charts[carrier]["removed"].append(chart)
+                
 
 new_filepath = 'Spreadsheet_Updated.xlsx'
 sheet = 'CarrierArDetail'
@@ -177,7 +184,7 @@ for carrier in old_charts.keys():
 
 
 
-carrier = 'AETNA - (AET07)'
+carrier = 'NOT BILLED YET - ()'#'AETNA - (AET07)'
 carriers = old_carriers
 charts = old_charts
 saved = old_charts[carrier].copy()
