@@ -5,6 +5,99 @@ import tkinter as tk
 from tkinter import filedialog
 
 
+
+# def write_carrier(carriers, new_filepath, sheet, carrier):
+#     with pd.ExcelWriter(new_filepath, engine='openpyxl', mode='a',if_sheet_exists='overlay') as writer:
+#         # Read only the specific sheet you want to append to
+#         book = writer.book
+#         try:
+#             startrow = book[sheet].max_row
+#         except KeyError:
+#             startrow = 0
+#         carriers[carrier].to_excel(writer, sheet_name=sheet, startrow=startrow, header=False, index=False)
+        
+#     wb = xl.load_workbook(new_filepath)
+#     ws = wb[sheet]
+
+#     # Define the font
+#     font1 = xl.styles.Font(name='Tahoma', size=8, bold=True)
+#     font2 = xl.styles.Font(name='Tahoma', size=7, bold=True)
+
+#     ws.merge_cells(start_row=startrow+1, start_column=1, end_row=startrow+1, end_column=3)
+#     ws.merge_cells(start_row=startrow+1, start_column=4, end_row=startrow+1, end_column=6)
+#     col = None
+#     typ = None 
+#     if 'new' in carriers.keys() and carrier in carriers['new']:
+#         col = 'FFFF00'
+#         typ = 'solid'
+#     fill_col = xl.styles.PatternFill(start_color=col, end_color=col, fill_type=typ)
+        
+#     for row in ws.iter_rows(min_row=startrow+1, max_row=startrow+3, min_col=1, max_col=12):
+#         for cell in row:
+#             cell.font = font1 if cell.column < 8 else font2
+#             if cell.row == startrow+1:
+#                 if cell.column < 8:
+#                     cell.number_format = 'General'
+#                 else:
+#                     cell.number_format = '$#,##0.00'
+#             else:
+#                 cell.number_format = '0.00%'
+#             cell.fill = fill_col
+                
+#     wb.save(new_filepath)
+
+
+# def write_charts(charts, new_filepath, sheet, carrier):
+#     with pd.ExcelWriter(new_filepath, engine='openpyxl', mode='a',if_sheet_exists='overlay') as writer:
+#             # Read only the specific sheet you want to append to
+#         book = writer.book
+#         try:
+#             startrow = book[sheet].max_row
+#         except KeyError:
+#             startrow = 0
+#         new = charts[carrier].pop('new', [])
+#         removed = charts[carrier].pop('removed', [])
+#         df = pd.concat(charts[carrier].values(), ignore_index=True)
+#         chart_rows = df[df.iloc[:,1].str.contains('Chart #')].index
+
+#         df.to_excel(writer, sheet_name=sheet, startrow=startrow, header=False, index=False)
+        
+#     wb = xl.load_workbook(new_filepath)
+#     ws = wb[sheet]
+
+#     # Define the font
+#     font1 = xl.styles.Font(name='Tahoma', size=7, bold=True)
+#     font2 = xl.styles.Font(name='Tahoma', size=7, bold=False)
+#     col = None
+#     typ = None
+
+#     for row in ws.iter_rows(min_row=startrow+1, max_row=startrow+df.shape[0], min_col=1, max_col=12):
+#         # check if the chart is new and choose infill color
+#         chart = row[1].value.strip() if row[1].value is not None else ''
+
+#         if "Chart #" in chart:
+#             if chart in new:
+#                 col = 'FFFF00'
+#                 typ = 'solid'
+#             elif chart in removed:
+#                 col = 'FF0000'
+#                 typ = 'solid'
+#             else:
+#                 col = None
+#                 typ = None
+#         fill_col = xl.styles.PatternFill(start_color=col, end_color=col, fill_type=typ)
+#         for cell in row:
+#             if cell.row in chart_rows+startrow+1:
+#                 cell.font = font1  
+#             else:
+#                 cell.font = font2
+#                 cell.number_format = '$#,##0.00'
+#             cell.fill = fill_col
+                
+#     wb.save(new_filepath)
+
+
+
 def select_file(init_dir=None, title=None):
     root = tk.Tk()
     root.withdraw()
@@ -51,97 +144,6 @@ def process_spreadsheet(filepath):
                 charts[carrier][chart][date] = v_df.reset_index(drop=True)
         
     return charts
-
-
-def write_carrier(carriers, new_filepath, sheet, carrier):
-    with pd.ExcelWriter(new_filepath, engine='openpyxl', mode='a',if_sheet_exists='overlay') as writer:
-        # Read only the specific sheet you want to append to
-        book = writer.book
-        try:
-            startrow = book[sheet].max_row
-        except KeyError:
-            startrow = 0
-        carriers[carrier].to_excel(writer, sheet_name=sheet, startrow=startrow, header=False, index=False)
-        
-    wb = xl.load_workbook(new_filepath)
-    ws = wb[sheet]
-
-    # Define the font
-    font1 = xl.styles.Font(name='Tahoma', size=8, bold=True)
-    font2 = xl.styles.Font(name='Tahoma', size=7, bold=True)
-
-    ws.merge_cells(start_row=startrow+1, start_column=1, end_row=startrow+1, end_column=3)
-    ws.merge_cells(start_row=startrow+1, start_column=4, end_row=startrow+1, end_column=6)
-    col = None
-    typ = None 
-    if 'new' in carriers.keys() and carrier in carriers['new']:
-        col = 'FFFF00'
-        typ = 'solid'
-    fill_col = xl.styles.PatternFill(start_color=col, end_color=col, fill_type=typ)
-        
-    for row in ws.iter_rows(min_row=startrow+1, max_row=startrow+3, min_col=1, max_col=12):
-        for cell in row:
-            cell.font = font1 if cell.column < 8 else font2
-            if cell.row == startrow+1:
-                if cell.column < 8:
-                    cell.number_format = 'General'
-                else:
-                    cell.number_format = '$#,##0.00'
-            else:
-                cell.number_format = '0.00%'
-            cell.fill = fill_col
-                
-    wb.save(new_filepath)
-
-
-def write_charts(charts, new_filepath, sheet, carrier):
-    with pd.ExcelWriter(new_filepath, engine='openpyxl', mode='a',if_sheet_exists='overlay') as writer:
-            # Read only the specific sheet you want to append to
-        book = writer.book
-        try:
-            startrow = book[sheet].max_row
-        except KeyError:
-            startrow = 0
-        new = charts[carrier].pop('new', [])
-        removed = charts[carrier].pop('removed', [])
-        df = pd.concat(charts[carrier].values(), ignore_index=True)
-        chart_rows = df[df.iloc[:,1].str.contains('Chart #')].index
-
-        df.to_excel(writer, sheet_name=sheet, startrow=startrow, header=False, index=False)
-        
-    wb = xl.load_workbook(new_filepath)
-    ws = wb[sheet]
-
-    # Define the font
-    font1 = xl.styles.Font(name='Tahoma', size=7, bold=True)
-    font2 = xl.styles.Font(name='Tahoma', size=7, bold=False)
-    col = None
-    typ = None
-
-    for row in ws.iter_rows(min_row=startrow+1, max_row=startrow+df.shape[0], min_col=1, max_col=12):
-        # check if the chart is new and choose infill color
-        chart = row[1].value.strip() if row[1].value is not None else ''
-
-        if "Chart #" in chart:
-            if chart in new:
-                col = 'FFFF00'
-                typ = 'solid'
-            elif chart in removed:
-                col = 'FF0000'
-                typ = 'solid'
-            else:
-                col = None
-                typ = None
-        fill_col = xl.styles.PatternFill(start_color=col, end_color=col, fill_type=typ)
-        for cell in row:
-            if cell.row in chart_rows+startrow+1:
-                cell.font = font1  
-            else:
-                cell.font = font2
-                cell.number_format = '$#,##0.00'
-            cell.fill = fill_col
-                
-    wb.save(new_filepath)
 
 
 
