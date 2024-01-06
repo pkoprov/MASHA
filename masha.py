@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 import openpyxl as xl
+import tkinter as tk
+from tkinter import filedialog
 
 
 def process_spreadsheet(filepath):
@@ -38,10 +40,9 @@ def process_spreadsheet(filepath):
     return charts, carriers_line
 
 
-
 def write_carrier(carriers, new_filepath, sheet, carrier):
     with pd.ExcelWriter(new_filepath, engine='openpyxl', mode='a',if_sheet_exists='overlay') as writer:
-            # Read only the specific sheet you want to append to
+        # Read only the specific sheet you want to append to
         book = writer.book
         try:
             startrow = book[sheet].max_row
@@ -52,12 +53,19 @@ def write_carrier(carriers, new_filepath, sheet, carrier):
     wb = xl.load_workbook(new_filepath)
     ws = wb[sheet]
 
-        # Define the font
+    # Define the font
     font1 = xl.styles.Font(name='Tahoma', size=8, bold=True)
     font2 = xl.styles.Font(name='Tahoma', size=7, bold=True)
 
     ws.merge_cells(start_row=startrow+1, start_column=1, end_row=startrow+1, end_column=3)
     ws.merge_cells(start_row=startrow+1, start_column=4, end_row=startrow+1, end_column=6)
+    col = None
+    typ = None 
+    if 'new' in carriers.keys() and carrier in carriers['new']:
+        col = 'FFFF00'
+        typ = 'solid'
+    fill_col = xl.styles.PatternFill(start_color=col, end_color=col, fill_type=typ)
+        
     for row in ws.iter_rows(min_row=startrow+1, max_row=startrow+3, min_col=1, max_col=12):
         for cell in row:
             cell.font = font1 if cell.column < 8 else font2
@@ -68,6 +76,7 @@ def write_carrier(carriers, new_filepath, sheet, carrier):
                     cell.number_format = '$#,##0.00'
             else:
                 cell.number_format = '0.00%'
+            cell.fill = fill_col
                 
     wb.save(new_filepath)
 
@@ -80,7 +89,7 @@ def write_charts(charts, new_filepath, sheet, carrier):
             startrow = book[sheet].max_row
         except KeyError:
             startrow = 0
-
+        new = charts[carrier].pop('new', [])
         df = pd.concat(charts[carrier].values(), ignore_index=True)
         chart_rows = df[df.iloc[:,1].str.contains('Chart #')].index
 
@@ -89,34 +98,66 @@ def write_charts(charts, new_filepath, sheet, carrier):
     wb = xl.load_workbook(new_filepath)
     ws = wb[sheet]
 
-        # Define the font
+    # Define the font
     font1 = xl.styles.Font(name='Tahoma', size=7, bold=True)
     font2 = xl.styles.Font(name='Tahoma', size=7, bold=False)
+    col = None
+    typ = None
+
     for row in ws.iter_rows(min_row=startrow+1, max_row=startrow+df.shape[0], min_col=1, max_col=12):
+        # check if the chart is new and choose infill color
+        chart = row[1].value.strip() if row[1].value is not None else ''
+
+        if "Chart #" in chart:
+            if chart in new:
+                col = 'FFFF00'
+                typ = 'solid'
+            else:
+                col = None
+                typ = None
+        fill_col = xl.styles.PatternFill(start_color=col, end_color=col, fill_type=typ)
         for cell in row:
             if cell.row in chart_rows+startrow+1:
-                cell.font = font1
+                cell.font = font1  
             else:
                 cell.font = font2
                 cell.number_format = '$#,##0.00'
+            cell.fill = fill_col
                 
     wb.save(new_filepath)
 
 
+def select_file(init_dir=None, title=None):
+    root = tk.Tk()
+    root.withdraw()
+    filepath = filedialog.askopenfilename(initialdir=init_dir, title=title)
+    root.destroy()
+    return filepath
 
-new_charts, new_carriers = process_spreadsheet('Spreadsheet_New.xlsx')
-old_charts, old_carriers = process_spreadsheet('Spreadsheet_Old.xlsx')
+
+print('Select the new spreadsheet')
+new = select_file(title = 'Select the new spreadsheet')
+print('Select the old spreadsheet')
+old = select_file(title='Select the old spreadsheet')
+
+new_charts, new_carriers = process_spreadsheet(new)
+old_charts, old_carriers = process_spreadsheet(old)
 
 for carrier in new_charts.keys():
     if carrier not in old_charts.keys():
         print(f'New carrier "{carrier}"')
+        old_carriers['new'] = [] if 'new' not in old_carriers.keys() else old_carriers['new']
         old_carriers[carrier] = new_carriers[carrier]
+        old_carriers['new'].append(carrier)
         old_charts[carrier] = new_charts[carrier]
+        
     else:
         for chart in new_charts[carrier].keys():
             if chart not in old_charts[carrier].keys():
+                old_charts[carrier]["new"] = [] if "new" not in old_charts[carrier].keys() else old_charts[carrier]["new"]
                 print(f'New chart for carrier "{carrier}": {chart}')
                 old_charts[carrier][chart] = new_charts[carrier][chart]
+                old_charts[carrier]["new"].append(chart)
 
 
 
@@ -126,7 +167,21 @@ sheet = 'CarrierArDetail'
 if not os.path.exists(new_filepath):
     # If the file doesn't exist, create an empty DataFrame and write it to the file
     pd.DataFrame().to_excel(new_filepath, sheet_name=sheet)
+
 for carrier in old_charts.keys():
+    if carrier == 'new':
+        continue
     print(f'Writing "{carrier}"...')
     write_carrier(old_carriers, new_filepath, sheet, carrier)
     write_charts(old_charts, new_filepath, sheet, carrier)
+
+
+
+carrier = 'AETNA - (AET07)'
+carriers = old_carriers
+charts = old_charts
+saved = old_charts[carrier].copy()
+saved.keys()
+
+charts[carrier] = saved.copy()
+charts[carrier].keys()
