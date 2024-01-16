@@ -44,7 +44,7 @@ def process_spreadsheet(filepath):
             chart, ch_df = key_plus_df(car_df, chart_rows, j, ch_start,col+1)
             print(5*"\t", chart,"...")
             
-            visit_rows = ch_df[ch_df.iloc[:,col].str.contains('Aging Date:')].index.to_list()
+            visit_rows = ch_df[ch_df.iloc[:,col+1].str.contains('Service Date')].index.to_list()
             charts[carrier][chart] = {"Chart info": ch_df.loc[ch_start:visit_rows[0]-1]}
 
             for k, v_start in enumerate(visit_rows):
